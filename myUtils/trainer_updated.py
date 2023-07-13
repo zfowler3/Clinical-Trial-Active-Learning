@@ -109,9 +109,9 @@ class Trainer_New(object):
         self.test_dynamic_loader = test_loader
 
         # init blank train loader and grad loader and unlabeled loader
-        train_loader = test_loader
-        self.train_loader = train_loader
-        self.grad_loader = train_loader
+        train_loader = None
+        self.train_loader = None
+        self.grad_loader = None
         self.cur_used = np.array([])
         self.unlabeled_loader = train_loader
         self.grad_loader_test = test_loader
@@ -139,6 +139,7 @@ class Trainer_New(object):
             self.criterion = nn.CrossEntropyLoss()
         else:
             self.criterion = nn.BCEWithLogitsLoss()
+            # debugging using different dataset
             if self.args.dataset == 'CXR':
                 self.criterion = nn.BCELoss()
                 optimizer = torch.optim.SGD(
@@ -235,8 +236,6 @@ class Trainer_New(object):
         unused = np.where(np.isin(total_week_indices, self.cur_used, invert=True))[0]
 
         unused_idxs = total_week_indices[unused]
-
-        print('-------------len of unused idxs:------------ ', unused_idxs.shape)
         unused_data = GetDataset(df=data.loc[unused_idxs], img_dir=self.data_path, transform=test_transform,
                                  dataset=self.args.dataset, fold='train')
         grad_loader = DataLoader(dataset=unused_data, batch_size=1, shuffle=True)
@@ -246,6 +245,7 @@ class Trainer_New(object):
         unused_te = np.where(np.isin(total_te_week_ind, current_idxs_test, invert=True))[0]
 
         if len(unused_te) != 0:
+            # Different experimental setup where dynamic test set is composed of queried test samples (not presented in paper)
             # for dynamic test set query methods (badge and coreset)
             unused_idxs_te = total_te_week_ind[unused_te]
             unused_te_data = GetDataset(df=data_test.loc[unused_idxs_te], img_dir=self.data_path,
@@ -256,7 +256,7 @@ class Trainer_New(object):
             self.unlabeled_loader_test = unlabeled_loader_test
 
         if current_idxs_test.any() != None:
-            print('!! ------TTTEST!!------- ')
+            # Establish dynamic test set loader
             test_dataset = GetDataset(df=data_test.loc[current_idxs_test], img_dir=self.data_path,
                                       transform=test_transform, dataset=self.args.dataset, fold='test')
             test_loader_dynamic = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
@@ -269,6 +269,7 @@ class Trainer_New(object):
         return
 
     def randomly_sample(self, number):
+        # For continual learning memory set
         previous_samples = np.random.choice(self.cur_used, size=number, replace=False)
         return previous_samples
 
@@ -280,105 +281,18 @@ class Trainer_New(object):
                 m.reset_parameters()
 
         self.model = self.model.apply(weight_reset)
+        # if using multiple GPUs....
         # if self.args.cuda:
         #     self.model = self.model.apply(weight_reset).cuda()
         # else:
         #     self.model = self.model.apply(weight_reset)
 
-    def chestxray_routine(self, epoch):
-        start_epoch = 1
-        best_loss = 999999
-        best_epoch = -1
-        last_train_loss = -1
-
-        # set model to train or eval mode based on whether we are in train or
-        # val; necessary to get correct predictions given batchnorm
-        # for phase in ['train', 'val']:
-        #     if phase == 'train':
-        #         self.model.train(True)
-        #     else:
-        #         self.model.train(False)
-
-        running_loss = 0.0
-
-        self.model.train(True)
-
-        i = 0
-        total_done = 0
-        train_loss = 0
-        # iterate over all data in train/val dataloader:
-        for j, (inputs, labels, idx, act_idx) in enumerate(tqdm(self.train_loader)):
-            i += 1
-            batch_size = self.args.batch_size
-            inputs = Variable(inputs.cuda())
-            labels = Variable(labels.cuda()).float()
-            outputs = self.model(inputs)
-
-            # calculate gradient and update parameters in train phase
-            self.optimizer.zero_grad()
-            loss = self.criterion(outputs, labels)
-            loss.backward()
-            self.optimizer.step()
-
-            running_loss += loss.data * batch_size
-
-            size = len(self.train_loader)
-
-            epoch_loss = running_loss / size
-            last_train_loss = epoch_loss
-
-            print('train epoch {}:loss {:.4f} with data size {}'.format(
-                epoch, epoch_loss, size))
-            train_loss += loss.item()
-            tqdm(self.train_loader).set_description('Train loss: %.3f' % (train_loss / (i + 1)))
-
-            # decay learning rate if no val loss improvement in this epoch
-
-            # if phase == 'val' and epoch_loss > best_loss:
-            #     print("decay loss from " + str(LR) + " to " +
-            #           str(LR / 10) + " as not seeing improvement in val loss")
-            #     LR = LR / 10
-            #     # create new optimizer with lower learning rate
-            #     optimizer = optim.SGD(
-            #         filter(
-            #             lambda p: p.requires_grad,
-            #             model.parameters()),
-            #         lr=LR,
-            #         momentum=0.9,
-            #         weight_decay=weight_decay)
-            #     print("created new optimizer with LR " + str(LR))
-
-            # # checkpoint model if has best val loss yet
-            # if phase == 'val' and epoch_loss < best_loss:
-            #     best_loss = epoch_loss
-            #     best_epoch = epoch
-            #     checkpoint(model, best_loss, epoch, LR)
-
-            # log training and validation loss over each epoch
-            # if phase == 'val':
-            #     with open("results/log_train", 'a') as logfile:
-            #         logwriter = csv.writer(logfile, delimiter=',')
-            #         if (epoch == 1):
-            #             logwriter.writerow(["epoch", "train_loss", "val_loss"])
-            #         logwriter.writerow([epoch, last_train_loss, epoch_loss])
-
-        total_done += batch_size
-        if (total_done % (100 * batch_size) == 0):
-            print("completed " + str(total_done) + " so far in epoch")
-
-        # # break if no val loss improvement in 3 epochs
-        # if ((epoch - best_epoch) >= 3):
-        #     print("no improvement in 3 epochs, break")
-        #     break
-        return
     def training(self, epoch):
         '''Trains the model in the given epoch. It uses the training loader to get the dataset and trains the model
         for one epoch'''
         # sets model into training mode -> important for dropout batchnorm. etc.
         self.model.train()
-        # initializes cool bar for visualization
         tbar = tqdm(self.train_loader)
-        num_img_tr = len(self.train_loader)
 
         # init statistics parameters
         train_loss = 0.0
@@ -398,8 +312,6 @@ class Trainer_New(object):
                 image, target = image.to(self.device), target.to(self.device)
                 #one_hot = one_hot.cuda()
                 one_hot = one_hot.to(self.device)
-
-            # plot_batch(image, DEVICE)
 
             # update model
             self.optimizer.zero_grad()
@@ -427,8 +339,6 @@ class Trainer_New(object):
 
             # extract loss value as float and add to train_loss
             train_loss += loss.item()
-
-            # Do fun bar stuff
             tbar.set_description('Train loss: %.3f' % (train_loss / (i + 1)))
 
             correct_samples += pred.eq(target.data).cpu().sum()
@@ -449,8 +359,10 @@ class Trainer_New(object):
         # set model to evaluation mode
         self.model.eval()
         if mode == 'normal':
+            # for larger test set / different test set
             tbar = tqdm(self.test_loader)
         elif mode == 'fixed':
+            # fixed test set
             tbar = tqdm(self.test_fixed_loader)
         else:
             tbar = tqdm(self.test_dynamic_loader)
@@ -471,7 +383,6 @@ class Trainer_New(object):
         forgets = 0
         for i, (image, target, idx, actual_idx) in enumerate(tbar):
             # convert target to one hot vectors
-            # print(idx)
             one_hot = torch.zeros(target.shape[0], self.nclasses)
             one_hot[range(target.shape[0]), target.long()] = 1
             # set cuda
@@ -534,18 +445,10 @@ class Trainer_New(object):
         acc = 100.0 * correct_samples.item() / total_samples
         precision = precision_score(gt_all, pred_all, average=None)
         recall = recall_score(gt_all, pred_all, average=None)
-        AUC = auc(recall, precision)
-        torchauroc = AUROC(task='binary')
-        print('torch auroc: ', torchauroc(torch.from_numpy(pred_all), torch.from_numpy(gt_all)))
         balanced_acc = balanced_accuracy_score(gt_all, pred_all)
-
-        # precision, recall, thresholds = precision_recall_curve(pred_all, gt_all)
-        # auc_precision_recall = auc(recall, precision)
-        print('AUC PRECISION RECALL: ', AUC)
+        
         AUC = roc_auc_score(gt_all, pred_all)
         print('AUC ROC: ', AUC)
-        auc_test = roc_auc_score(gt_all, yscore_all)
-        print('somebody help me: ', auc_test)
 
         output_struct = {}
         output_struct['acc'] = acc
@@ -566,40 +469,6 @@ class Trainer_New(object):
         print('Test Accuracy: %.3f' % acc)
         print('Balanced test accuracy: %.3f' % balanced_acc)
 
-        # extraction_model = self.model
-        # #modules = list(extraction_model.module.backbone)
-        # #extraction_model = nn.Sequential(*modules)
-        # #print(extraction_model)
-        #
-        # extraction_model.module.linear = nn.Identity()
-        # extraction_model.module.backbone.fc = nn.Identity()
-        # representation_list = []
-        # label_list = []
-        # extraction_model.eval()
-        # extraction_model.to(DEVICE)
-        # tbar_rep = tqdm(self.test_loader)
-        # for i, (image, target, idx, actual_idx) in enumerate(tbar_rep):
-        #     if self.args.cuda:
-        #         image, target = image.cuda(), target.cuda()
-        #     output = extraction_model(image) #output of last conv layer of network for 1 image (512*1)
-        #     representation_list.append(output.squeeze().detach().cpu().numpy())
-        #     label_list.append(target.squeeze().detach().cpu().numpy())
-        #
-        # # Size: 2000*512
-        # representation_array = np.asarray(representation_list)
-        # print(representation_array.shape)
-        # label_array = np.asarray(label_list)
-        # # This goes in some folder
-        # folder = 'Representations/' + vis_mode +'/'
-        # if not os.path.exists(folder):
-        #     os.makedirs(folder)
-        # file_name = folder + str(round)+'_' + q + '.npy'
-        # file_name_label = folder + str(round) +'_' + q +'_labels' + '.npy'
-        # np.save(file_name, representation_array)
-        # np.save(file_name_label, label_array)
-        #
-        # extraction_model.module.linear = nn.Linear(1000, 2)
-        # extraction_model.module.backbone.fc = nn.Linear(512,1000)
         return output_struct, store_model_preds, forgets
 
     def get_probs(self, mode):
@@ -627,8 +496,6 @@ class Trainer_New(object):
             # iterate over all sample batches
             for i, (image, target, idxs, actual_idx) in enumerate(tbar):
                 # assign each image and target to GPU
-                # print('TRAINING LOOP, ACT IDX: ', actual_idx)
-                # print('TRAINING LOOP, IDX: ', idxs)
                 if self.args.cuda:
                     image, target = image.to(self.device), target.to(self.device)
 
@@ -707,7 +574,7 @@ class Trainer_New(object):
 
                 _, pred = torch.max(output.data, 1)
 
-                # insert to embediing array
+                # insert to embedding array
                 for j in range(target.shape[0]):
                     for c in range(self.nclasses):
                         if c == pred[j].item():
@@ -739,8 +606,7 @@ class Trainer_New(object):
             embedDim = self.model.module.get_penultimate_dim()
         else:
             embedDim = self.model.get_penultimate_dim()
-
-        # give me more baaaaaaaaaaaaaaaaaaaaaaaaaar!!!
+            
         if loader_type == 'labeled' and mode == 'tr':
             tbar = tqdm(self.train_loader, desc='\r')
         elif loader_type == 'unlabeled' and mode == 'tr':
@@ -848,9 +714,6 @@ class Trainer_New(object):
                 # pdb.set_trace()
                 print('PENULTIMATE SHAPE: ', penultimate.shape)
                 count += 1
-                # if count > 10000:
-                #     break
-                #print('HELLO: ', penultimate.cpu().numpy().shape)
                 features.append(penultimate.cpu().numpy())
                 feat = np.vstack([feat, penultimate.cpu().numpy()]) if feat.size else penultimate.cpu().numpy()
                 # features.append((img_name, output.cpu().numpy()))
