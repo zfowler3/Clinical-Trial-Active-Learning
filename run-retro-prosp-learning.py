@@ -142,13 +142,6 @@ def main():
         except ValueError:
             raise ValueError('Argument --gpu_ids must be a comma-separated list of integers only')
 
-    # default settings for epochs, batch_size and lr
-    if args.epochs is None:
-        epoches = {
-            'cifar10': 75
-        }
-        args.epochs = epoches[args.dataset.lower()]
-
     # default batch size
     if args.batch_size is None:
         args.batch_size = 4 * len(args.gpu_ids)
@@ -157,14 +150,7 @@ def main():
     if args.test_batch_size is None:
         args.test_batch_size = args.batch_size
 
-    # default learning rate
-    if args.lr is None:
-        lrs = {
-            'cifar10': 0.1
-        }
-        args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
-
-    # default checkpoint name
+    # print all arguments
     print(args)
 
     # init seed
@@ -189,10 +175,6 @@ def main():
     # Smallest visit # is deciding factor
     deciding = min(max_train, max_test)
 
-    #### NEW EXPERIMENT 03-24-23
-    visit_arr = np.arange(1, deciding + 1)
-    #visit_arr = np.arange(1, 13) # visit array is now between 1 and 13 inclusive
-
     # initialize starting week if performing random week selection
     if args.skip_seq == True:
         init_visit = 1  # start with week 1
@@ -213,13 +195,12 @@ def main():
 
     # Get START IDXS for CONTINUAL LEARNING and ACTIVE LEARNING
 
-    # RActive learning
+    # RetroActive learning
     if args.visit_mode == 'None':
         start_idxs = total[np.random.permutation(len(total))][:init_samples]
 
     # PAL learning
     else:
-        print('INITIAL VISIT: ', init_visit)
         week1_tr = train_data[train_data['Visit'] == init_visit]
 
         # Get index list of all init visit images
@@ -238,6 +219,7 @@ def main():
         # # This is optional; if making the dynamic test set smaller you would need something like this
         start_idxs_test = ((np.random.permutation(week_te_pool_ind)))[:args.dynamic_test_size]
     else:
+        # Dynamic test set that adds in all images from visit at each round
         week1_te = test_data[test_data['Visit'] == init_visit]
         # For test set; index list of all week 1 test images
         week_te_pool_ind = week1_te['Ind'].to_numpy()
@@ -251,6 +233,7 @@ def main():
     else:
         inds = placeholder
 
+    # Init sampler classes 
     if args.strategy == 'rand':
         print('Using a random sampler')
         sampler = RandomSampling(train_pool, start_idxs, inds)
@@ -280,22 +263,10 @@ def main():
         print('Sampler not implemented!!!!')
         raise NotImplementedError
 
-    # Default: if adding in entire visit test data at each round, sample it randomly
-    # For PAL learning only; Ractive learning will need an explicit test set size
-    # and args.visit_mode != 'None' < - commented out this; we are now using the same DYNAMIC test set in both RAL and PAL for comparison purposes
+    # Default: if adding in entire visit test data at each round (easier to use sampler class for dynamic test set)
     if args.dynamic_test_size == 0:
         # Adding full visit data in at each round
         sampler_test = RandomSampling(test_pool, start_idxs_test, week_te_pool_ind)
-
-    if args.visit_mode == 'None':
-        if args.nend < len(total):
-            NUM_ROUND = int((args.nend - init_samples) / args.nquery)
-        else:
-            NUM_ROUND = int((len(total) - init_samples) / args.nquery) + 1
-            print('Number of end samples too large! Using total number of samples instead. Rounds: %d Total Samples: %d' % (NUM_ROUND, len(total)))
-    else:
-        NUM_ROUND = int((args.nend - init_samples) / args.nquery)
-        print('Querying %d images each round!!' % args.nquery)
 
     NUM_ROUND = args.rounds
     print('Rounds: %d' % NUM_ROUND)
@@ -355,10 +326,9 @@ def main():
     if args.run_status == 'train':
         # train over number of epochs
         for rounds in range(NUM_ROUND):
-            #GET MODEL
-            #model = trainer.get_model(args.architecture)
             print('Round: %d' % rounds)
             # Next visit
+            # Need to do this first in the case of BADGE, Coreset, etc which uses unlabeled pool to determine next samples to query (need to expand that pool to include next visit)
             if args.skip_seq == True:
                 visit_tab += 2
                 if visit_tab > deciding:
@@ -368,7 +338,6 @@ def main():
                     visit_tab = np.random.choice(visit_arr, size=1, replace=False)
                     visit_arr = np.delete(visit_arr, np.where(visit_arr == visit_tab))
                     visit_tab = visit_tab[0]
-                    print('----next Visit------: ', visit_tab)
                 else:
                     break
             elif args.visit_mode=='yes' or args.forgetting_mode=='dynamic':
@@ -413,7 +382,6 @@ def main():
             # get test idxs (for dynamic test set)
             if args.forgetting_mode == 'dynamic':
                 current_idxs_test = sampler_test.idx_current
-                print('CHECK - TEST LOADER CURRENT IDXS: ', len(current_idxs_test))
                 # This accounts for BOTH dynamic and fixed test set
             else:
                 current_idxs_test = placeholder
@@ -427,16 +395,6 @@ def main():
                     patients_test = test_data.iloc[current_idxs_test]
                     patients_test['Round'] = int(rounds)
             else:
-
-                # selected_patients1 = train_data.iloc[current_idxs]
-                #  # Add new patients sampled
-                # if not args.sample_past:
-                #     comp = selected_patients.iloc[:, :-1]
-                #     ne = selected_patients1.ne(comp)
-                #     selected_patients1 = selected_patients1[ne].dropna()
-                # selected_patients1['Round'] = int(rounds)
-                # #selected_patients = selected_patients.concat(selected_patients1, ignore_index=True)
-                # selected_patients = pd.concat([selected_patients, selected_patients1], ignore_index=False)
                 new = train_data.iloc[new_idxs]
                 new['Round'] = int(rounds)
                 selected_patients = pd.concat([selected_patients, new], ignore_index=False)
@@ -444,9 +402,7 @@ def main():
                     patients_test_new = test_data.iloc[new_idxs_test]
                     patients_test_new['Round'] = int(rounds)
                     patients_test = pd.concat([patients_test, patients_test_new], ignore_index=False)
-
-            print('Length of current train indices (tr): ', len(current_idxs))
-            print('total week tr idxs: ', week_tr_pool_ind_total.shape)
+                    
             # UPDATE TRAIN, TEST LOADERS WITH CURRENT INDEXES
             trainer.update_loaders(current_idxs=current_idxs, batch_size=args.batch_size, data=train_data,
                                    total_week_indices=week_tr_pool_ind_total,
@@ -454,24 +410,14 @@ def main():
                                    total_te_week_ind=week_te_ind_tot)
 
             # training routine for datasets that don't need validation dataset vs those that do
-            if args.mode == 'acc':
-                # Accuracy is used to prevent overfitting
-                while acc < args.min_acc:
-                    # train for this epoch
+            # Accuracy is used to prevent overfitting
+            while acc < args.min_acc:
+                # train for this epoch
 
-                    acc, model_trained, opt = trainer.training(epoch)
+                acc, model_trained, opt = trainer.training(epoch)
 
-                    # increment epoch counter
-                    epoch += 1
-
-            else:
-                # Validation loss used to prevent overfitting
-                for epoch in range(1, args.epochs):
-                    best_epoch, model_trained, opt = trainer.training(epoch)
-                    # break if no val loss improvement in 3 epochs
-                    if ((epoch - best_epoch) >= 3):
-                        print("no improvement in 3 epochs, break")
-                        break
+                # increment epoch counter
+                epoch += 1
 
             # test statistics
             print('---Testing normal data....---')
@@ -512,7 +458,6 @@ def main():
             df.loc[rounds, 'AUC'] = accs['auc']
 
             if args.visit_mode == 'yes' or args.dynamic_test_size==0:
-                #print('CHEEEEEECK')
                 cur_visit = visit_tab
 
                 # query new samples
@@ -545,27 +490,7 @@ def main():
                     # Random sampling
                     # using random sampling class
                     new_idxs = sampler.query(NUM_QUERY, placeholder, opt=args.current_only)
-                    #print('cur round!: ', rounds)
-                # forgetting strategy
-                if args.forgetting_strategy == 'least_conf' or args.forgetting_strategy == 'entropy' or args.forgetting_strategy == 'margin':
-                    print('calculating probabilities')
-                    if args.forgetting_mode == 'dynamic' and args.dynamic_test_size > 0:
-                        probs_test = trainer.get_probs(mode='te')
-                        new_idxs_test = sampler_test.query(args.dynamic_test_size, probs_test)
-                elif args.forgetting_strategy == 'badge':
-                    print('calculating gradient embeddings')
-                    if args.forgetting_mode == 'dynamic' and args.dynamic_test_size > 0:
-                        embeddings_te = trainer.get_badge_embeddings(mode='te')
-                        new_idxs_test = sampler_test.query(args.dynamic_test_size, embeddings_te)
-                elif args.forgetting_strategy == 'coreset':
-                    print('calculating embeddings')
-                    if args.forgetting_mode == 'dynamic' and args.dynamic_test_size > 0:
-                        new_idxs_test = sampler_test.query_te(args.dynamic_test_size, trainer)
-                # else:
-                #     # Random sampling; this is when I wasn't using same dynamic test set for RAL
-                #     # using random sampling class
-                #     if args.forgetting_mode == 'dynamic':
-                #         new_idxs_test = sampler_test.query(args.dynamic_test_size, placeholder)
+
             # Update sampler for PROSPECTIVE
             else:
                 if args.strategy == 'rand':
@@ -583,34 +508,10 @@ def main():
                     print('calculating gradient embeddings')
                     embeddings = trainer.get_badge_embeddings(mode='tr')
                     new_idxs = sampler.query(NUM_QUERY, embeddings)
-                    print('UNIQUE: ', len(np.unique(new_idxs)))
 
                 elif args.strategy == 'coreset':
                     print('calculating embeddings')
                     new_idxs = sampler.query(NUM_QUERY, trainer)
-                    print('UNIQUE: ', len(np.unique(new_idxs)))
-
-                print('UNIQUE: ', len(np.unique(new_idxs)))
-                # forgetting strategy - dynamic test set [ignore if using fixed test set]
-                if args.forgetting_strategy == 'rand':
-                    if args.forgetting_mode == 'dynamic' and args.dynamic_test_size > 0:
-                        print('querying... for test')
-                        new_idxs_test = sampler_test.query(args.dynamic_test_size, week_te_pool_ind)
-
-                elif args.forgetting_strategy == 'least_conf' or args.forgetting_strategy == 'entropy' or args.forgetting_strategy == 'margin':
-                    print('calculating probabilities')
-                    if args.forgetting_mode == 'dynamic' and args.dynamic_test_size > 0:
-                        probs_test = trainer.get_probs(mode='te')
-                        new_idxs_test = sampler_test.query(args.dynamic_test_size, probs_test)
-                elif args.forgetting_strategy == 'badge':
-                    print('calculating gradient embeddings')
-                    if args.forgetting_mode == 'dynamic' and args.dynamic_test_size > 0:
-                        embeddings_te = trainer.get_badge_embeddings(mode='te')
-                        new_idxs_test = sampler_test.query(args.dynamic_test_size, embeddings_te)
-                elif args.forgetting_strategy == 'coreset':
-                    print('calculating embeddings')
-                    if args.forgetting_mode == 'dynamic' and args.dynamic_test_size > 0:
-                        new_idxs_test = sampler_test.query_te(args.dynamic_test_size, trainer)
 
             if args.sample_past:
                 previous = trainer.randomly_sample(number=128)
