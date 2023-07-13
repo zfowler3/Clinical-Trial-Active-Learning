@@ -20,9 +20,7 @@ class GetDataset(data.Dataset):
         im2 = im2.astype('uint8')
         if len(im2.shape) == 3:
             im2 = cv.cvtColor(im2, cv.COLOR_BGR2GRAY)
-        #im2 = im2[:, int(im2.shape[1] / 2):] # uncomment this for RCT; not for OASIS
-        #im2 = cv.resize(im2, (224, 224), interpolation=cv.INTER_AREA) # change to 128 x 128 for RCT
-        # if idx == 0:
-        #     plt.imsave('/home/zoe/HEYYYslice.png', im2, cmap='gray')
+        im2 = im2[:, int(im2.shape[1] / 2):]
+        im2 = cv.resize(im2, (128, 128), interpolation=cv.INTER_AREA)
         image = im2 * 1.0
         return image
