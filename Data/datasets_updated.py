@@ -21,29 +21,11 @@ class GetDataset(data.Dataset):
         self.transform = transform
         self.data = dataset
 
-        if self.data == 'CXR':
-            self.df = self.df[self.df['fold'] == fold]
-            self.df = self.df.set_index("Image Index")
-            self.PRED_LABEL = [
-                'Atelectasis',
-                'Cardiomegaly',
-                'Effusion',
-                'Infiltration',
-                'Mass',
-                'Nodule',
-                'Pneumonia',
-                'Pneumothorax',
-                'Consolidation',
-                'Edema',
-                'Emphysema',
-                'Fibrosis',
-                'Pleural_Thickening',
-                'Hernia']
-
     def __len__(self):
         return len(self.df)
     def __getitem__(self, idx):
         if self.data == 'RCT':
+            # Results presented in paper
             img_path = self.img_dir + self.df.iloc[idx, 0]
             act_idx = self.df.iloc[idx,7]
             im = Image.open(img_path)
@@ -62,21 +44,5 @@ class GetDataset(data.Dataset):
             im = Image.open(img_path)
             image = self.transform(im)
             label = self.df['Label'].iloc[idx]
-        elif self.data == 'CXR':
-            image = Image.open(
-                os.path.join(
-                    self.img_dir,
-                    self.df.index[idx]))
-            image = image.convert('RGB')
-
-            label = np.zeros(len(self.PRED_LABEL), dtype=int)
-            for i in range(0, len(self.PRED_LABEL)):
-                # can leave zero if zero, else make one
-                if (self.df[self.PRED_LABEL[i].strip()].iloc[idx].astype('int') > 0):
-                    label[i] = self.df[self.PRED_LABEL[i].strip()
-                    ].iloc[idx].astype('int')
-
-            if self.transform:
-                image = self.transform(image)
-            act_idx = self.df.iloc[idx, -1]
+            
         return image, label, idx, act_idx
