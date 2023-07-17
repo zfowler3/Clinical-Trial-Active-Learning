@@ -13,13 +13,10 @@ def furthest_first(X, X_set, n):
     else:
         dist_ctr = pairwise_distances(X, X_set)
         min_dist = np.amin(dist_ctr, axis=1)
-        print('min dist shape: ', min_dist.shape)
-    print('coreset idxssss unique: ', len(np.unique(min_dist)))
     idxs = []
 
     for i in range(n):
         idx = min_dist.argmax()
-        print('idx: ', idx)
         idxs.append(idx)
         dist_new_ctr = pairwise_distances(X, X[[idx], :])
         for j in range(m):
