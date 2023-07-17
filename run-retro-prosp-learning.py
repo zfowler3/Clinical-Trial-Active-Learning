@@ -20,7 +20,7 @@ def parse_everything():
                                  'vgg_11', 'vgg_13', 'vgg_16', 'vgg_19', 'mlp'],
                         help='architecture name (default: resnet)')
     parser.add_argument('--dataset', type=str, default='RCT',
-                        choices=['OASIS', 'RCT', 'CXR', 'ADNI'],
+                        choices=['OASIS', 'RCT'],
                         help='dataset name (default: RCT)')
     parser.add_argument('--data_path', type=str, #default='./Data', changed this (zmf)
                         default='/media/zoe/HD/Datasets',
@@ -132,8 +132,6 @@ def main():
     placeholder = np.array([None])
     # make sure gpu is available
     args.cuda = not args.no_cuda and torch.cuda.is_available()
-    print('CUDA: ',  torch.cuda.is_available())
-    print('pretrained? : ', args.pretrained)
     # make gpu ids inputable
     if args.cuda:
         try:
@@ -345,7 +343,7 @@ def main():
                 if visit_tab > deciding:
                     complete = True # for the last round
                     #break
-            # Data from next visit
+            # Data from next visit; necessary when defining the unlabeled loaders (for strategies that compute embeddings, etc to query new data) in Trainer class
             if not complete:
                 print('The next visit is: ', visit_tab)
                 week_tr = train_data[train_data['Visit'] == visit_tab]
@@ -359,7 +357,6 @@ def main():
                     if args.current_only:
                         week_tr_pool_ind_total = week_tr_pool_ind_current
                         week_te_ind_tot = week_te_cur
-                        print('Only looking at NEXT visit: ', week_tr_pool_ind_total.shape)
                     else:
                         # allow past visit data to be queried from
                         week_tr_pool_ind_total = np.concatenate((week_tr_pool_ind_total, week_tr_pool_ind_current))
@@ -368,7 +365,6 @@ def main():
             if args.visit_mode == 'None':
                 print('Regular active learning')
                 week_tr_pool_ind_total = train_data['Ind'].to_numpy()
-                #print('tr pool ind shape (current+next): ', week_tr_pool_ind_total.shape)
                 week_te_ind_tot = test_data['Ind'].to_numpy()
 
             # init epoch and accuracy parameters
@@ -425,7 +421,7 @@ def main():
                 mode = 'dynamic'
             if args.forgetting_mode == 'fixed':
                 mode = 'fixed'
-            elif args.visit_mode == 'None' and args.forgetting_mode=='None': # regular active learning; no forgetting events
+            elif args.visit_mode == 'None' and args.forgetting_mode=='None': # regular active learning; no forgetting events [unused in paper]
                 mode = 'normal'
             print('MODE: ', mode)
 
@@ -485,7 +481,6 @@ def main():
                 elif args.strategy == 'coreset':
                     print('calculating embeddings')
                     new_idxs = sampler.query(NUM_QUERY, trainer)
-                    print('UNIQUE: ', len(np.unique(new_idxs)))
                 else:
                     # Random sampling
                     # using random sampling class
@@ -494,10 +489,7 @@ def main():
             # Update sampler for PROSPECTIVE
             else:
                 if args.strategy == 'rand':
-                    print('NEW IDXS: ', week_tr_pool_ind.shape)
-                    #TODO
                     new_idxs = sampler.query(NUM_QUERY, week_tr_pool_ind, opt=args.current_only)
-                    print('UNIQUE: ', len(np.unique(new_idxs)))
 
                 elif args.strategy == 'least_conf' or args.strategy == 'entropy' or args.strategy == 'margin':
                     print('calculating probabilities')
@@ -535,6 +527,7 @@ def main():
 
     elif args.run_status == 'test':
         # test over all epochs
+        # if you want to test separately.
         trainer.testing()
     else:
         raise (Exception('please set args.run_status=train or test'))
