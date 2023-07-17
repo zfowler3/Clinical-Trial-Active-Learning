@@ -28,7 +28,7 @@ def parse_everything():
     parser.add_argument('--train_spreadsheet', type=str, default='/home/zoe/activelearning/Spreadsheets/prime_trex_compressed.csv')
     parser.add_argument('--test_spreadsheet', type=str,
                         default='/home/zoe/activelearning/Spreadsheets/prime_trex_test_new.csv')
-    parser.add_argument('--train_type', type=str, default='traditional',  # TODO
+    parser.add_argument('--train_type', type=str, default='traditional',
                         choices=['traditional', 'positive_congruent'])
     parser.add_argument('--mode', type=str, default='acc', choices=['acc', 'val'])
     parser.add_argument('--workers', type=int, default=4,
@@ -52,11 +52,7 @@ def parse_everything():
     parser.add_argument('--forgetting_mode', default='None', choices=['dynamic', 'fixed', 'None'],
                         help='examine forgetting stats on dynamic or fixed test set (or none)')
 
-    parser.add_argument('--forgetting_strategy', type=str, default='rand', choices=['rand', 'idealEF', 'reversed_idealEF', 'mc_update', 'least_conf', 'entropy', 'margin',
-                                 'badge', 'gradcon', 'reversed_EF_switchsampling', 'EF_switchsampling', 'idealBadge',
-                                 'patient_diverse', 'patient_diverse_entropy', 'patient_diverse_entropy_macro',
-                                 'patient_diverse_margin', 'patient_diverse_least_conf', 'patient_diverse_badge',
-                                 'clinically_diverse', 'clinically_diverse_entropy', 'clinically_diverse_badge', 'coreset'])
+    parser.add_argument('--forgetting_strategy', type=str, default='rand', choices=['rand', 'least_conf', 'entropy', 'margin', 'badge', 'coreset'])
     parser.add_argument('--skip_seq', default=False, type=bool,
                         help='skip weeks in the natural order')
     parser.add_argument('--skip_rand', default=False, type=bool,
@@ -84,15 +80,10 @@ def parse_everything():
 
     # active learning parameters
     parser.add_argument('--strategy', type=str, default='rand',  ######### rand
-                        choices=['rand', 'idealEF', 'reversed_idealEF', 'mc_update', 'least_conf', 'entropy', 'margin',
-                                 'badge', 'gradcon', 'reversed_EF_switchsampling', 'EF_switchsampling', 'idealBadge',
-                                 'patient_diverse', 'patient_diverse_entropy', 'patient_diverse_entropy_macro',
-                                 'patient_diverse_margin', 'patient_diverse_least_conf', 'patient_diverse_badge',
-                                 'clinically_diverse', 'clinically_diverse_entropy', 'clinically_diverse_badge',
-                                 'coreset'],
+                        choices=['rand','least_conf', 'entropy', 'margin','badge','coreset'],
                         help='strategy used for sample query in active earning experiment')
-    parser.add_argument('--start_strategy', type=str, default='rand_init',  # TODO!!!!!
-                        choices=['rand_init', 'diverse_init'])  ###########
+    parser.add_argument('--start_strategy', type=str, default='rand_init',
+                        choices=['rand_init']) # can customize original selection of points
     parser.add_argument('--nstart', type=int, default=128,  ######### 20 # TODO number of samples in original dataset
                         help='number of samples in the initial data pool')
     parser.add_argument('--nend', type=int, default=10000,  ######## 50000; this is the budget
@@ -113,8 +104,6 @@ def parse_everything():
                         help='select past samples (randomly) for CT')
     parser.add_argument('--current_only', type=bool, default=False,
                         help='only query new visit data')
-
-    parser.add_argument('--base_dir', type=str, default='output_default')
 
     # for continual learning
     parser.add_argument('--continual', type=bool, default=False)
