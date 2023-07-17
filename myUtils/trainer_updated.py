@@ -168,17 +168,12 @@ class Trainer_New(object):
     def update_loaders(self, current_idxs, batch_size, data, total_week_indices, current_idxs_test, data_test,
                        total_te_week_ind):
         # transform
-        if self.args.dataset != 'CXR':
-            train_transform = transforms.Compose([])
-            train_transform.transforms.append(transforms.Grayscale(num_output_channels=1))
-            train_transform.transforms.append(transforms.ToTensor())
-            train_transform.transforms.append(transforms.Normalize(mean=self.mean, std=self.std))
+        train_transform = transforms.Compose([])
+        train_transform.transforms.append(transforms.Grayscale(num_output_channels=1))
+        train_transform.transforms.append(transforms.ToTensor())
+        train_transform.transforms.append(transforms.Normalize(mean=self.mean, std=self.std))
 
-            test_transform = transforms.Compose([transforms.Grayscale(num_output_channels=1), transforms.ToTensor(),
-                                                 transforms.Normalize(mean=self.mean, std=self.std)])
-        else:
-            train_transform = self.data_transforms_cxr['train']
-            test_transform = self.data_transforms_cxr['val']
+        test_transform = transforms.Compose([transforms.Grayscale(num_output_channels=1), transforms.ToTensor(),transforms.Normalize(mean=self.mean, std=self.std)])
 
         train_dataset = GetDataset(df=data.loc[current_idxs], img_dir=self.data_path, transform=train_transform,
                                    dataset=self.args.dataset, fold='train')
@@ -477,7 +472,6 @@ class Trainer_New(object):
         output_structure['probs'] = probs[indices == 1].cpu().numpy()
         ind_list = (indices == 1).nonzero().cpu().numpy()
         output_structure['indices'] = ind_list
-        print('ind list shape: ', len(ind_list))
 
         return output_structure
 
@@ -632,7 +626,7 @@ class Trainer_New(object):
                                 penultimate[j]) * \
                                                                                           (-1 * probs_output[
                                                                                               j, c].item())
-                indices[idxs.long()] = 1
+                indices[actual_idx.long()] = 1
 
         # sort idxs
         output_structure = {}
@@ -643,6 +637,7 @@ class Trainer_New(object):
 
         return output_structure
 
+    # debugging
     def embeddings(self, mode, loader_type: str = 'unlabeled'):
         features = []
         feat = np.array([])
