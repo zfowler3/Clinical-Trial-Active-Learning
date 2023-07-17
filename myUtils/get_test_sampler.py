@@ -8,21 +8,18 @@ from query_strategies import RandomSampling, LeastConfidenceSampler, EntropySamp
     PatientDiverseLeastConfidenceSampler, PatientDiverseBadgeSampler, ClinicallyDiverseSampler, \
     ClinicallyDiverseEntropySampler, ClinicallyDiverseBadgeSampler, CoresetSampler
 
-
+# Previous experiment; not utilized
 def return_sampler(fixed, dynamic, visit, strategy, test_pool, start_idxs_test, inds, week_te_pool_ind):
     placeholder = np.array([None])
     #print('STRATEGY1: ', strategy)
     if dynamic == 0 and fixed == False:
         sampler_test = placeholder  # if using entire visit's images at each round for example
         # This gets handled later in the code by just implementing a random sampler
-        print('sampler test: ', sampler_test)
         return sampler_test
 
     if visit == 'None':
-        #print('WHAT???')
         if strategy == 'rand':
             if fixed == True:
-                print('random sampler TESSSST')
                 sampler_test = RandomSampling(test_pool, start_idxs_test, inds)
             elif dynamic > 0:
                 sampler_test = RandomSampling(test_pool, start_idxs_test, inds)
