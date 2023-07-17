@@ -10,11 +10,8 @@ def furthest_first(X, X_set, n):
     m = np.shape(X)[0]
     if np.shape(X_set)[0] == 0:
         min_dist = np.tile(float("inf"), m)
-        print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! help')
     else:
         dist_ctr = pairwise_distances(X, X_set)
-        print('len of dist ctr: ', dist_ctr.shape)
-        print(len(np.unique(dist_ctr)))
         min_dist = np.amin(dist_ctr, axis=1)
         print('min dist shape: ', min_dist.shape)
     print('coreset idxssss unique: ', len(np.unique(min_dist)))
@@ -27,8 +24,6 @@ def furthest_first(X, X_set, n):
         dist_new_ctr = pairwise_distances(X, X[[idx], :])
         for j in range(m):
             min_dist[j] = min(min_dist[j], dist_new_ctr[j, 0])
-    ii = np.array(idxs)
-    print('coreset idxs unique: ', len(np.unique(ii)))
     return idxs
 
 
@@ -61,26 +56,14 @@ class CoresetSampler(Sampler):
         # idx_current is an array of all INDICES of currently selected images
         embeddings_un, unlabeled_indices = trainer.embeddings(mode='tr', loader_type='unlabeled')
         embeddings_lab, labeled_indices = trainer.embeddings(mode='tr', loader_type='labeled')
-        #self.total_features = embeddings_lab + embeddings_un
         self.total_features = np.concatenate((embeddings_lab, embeddings_un))
         total_indices = np.concatenate((labeled_indices, unlabeled_indices))
 
         labeled_inds_reset = np.arange(0, len(embeddings_lab[0]))
         self.already_selected = labeled_inds_reset
-        print('wtf?: ', labeled_inds_reset.shape)
-        print('tttttttttttotal features shape: ', self.total_features.shape)
-        # reshape
-        # feature_len = self.total_features[0].shape[1]
-        # self.total_features = self.total_features.reshape(-1,feature_len)
-        #print('total features shape vol 2: ', self.total_features.shape)
 
         self.update_dist(labeled_inds_reset, only_new=False, reset_dist=True)
 
-        #print('SOMEBODY HELP ME: ', len(np.unique(unlabeled_indices)))
-        print('already selected shape: ', self.already_selected.shape)
-        print('x: ', self.already_selected)
-        print('min dists: ', self.min_distances)
-        print('hh: ', self.min_distances.shape)
         new_batch = []
         for _ in range(n):
             ind = np.argmax(self.min_distances)
@@ -88,14 +71,11 @@ class CoresetSampler(Sampler):
             #     ind = np.random.choice(np.arange(self.dset_size))
             # else:
             #     ind = np.argmax(self.min_distances)
-            print('IND: ', ind)
             assert ind not in self.already_selected
             self.update_dist([ind], only_new=True, reset_dist=False)
             new_batch.append(ind)
-        print('max of inds: ', max(new_batch))
         new_batch = np.array(new_batch)
         actual_idxs = total_indices[new_batch]
-        print('actual idxs shape for querying: ', np.array(actual_idxs).astype(int))
         return np.array(actual_idxs).astype(int)
 
     # def query(self, n: int, trainer):
