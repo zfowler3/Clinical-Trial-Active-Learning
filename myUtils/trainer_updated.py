@@ -57,49 +57,19 @@ class Trainer_New(object):
         elif self.args.dataset == 'OASIS':
             self.mean = 0.1745
             self.std = 0.1518
-        elif self.args.dataset == 'CXR':
-            # imagenet mean, std
-            self.nclasses = 14
-            self.mean = [0.485, 0.456, 0.406]
-            self.std = [0.229, 0.224, 0.225]
-            self.data_transforms_cxr = {
-                'train': transforms.Compose([
-                    transforms.RandomHorizontalFlip(),
-                    transforms.Resize(224),
-                    transforms.CenterCrop(224),
-                    transforms.ToTensor(),
-                    transforms.Normalize(self.mean, self.std)
-                ]),
-                'val': transforms.Compose([
-                    transforms.Resize(224),
-                    transforms.CenterCrop(224),
-                    transforms.ToTensor(),
-                    transforms.Normalize(self.mean, self.std)
-                ]),
-            }
-            # create dataloader
-            test_dataset = CXR.CXRDataset(
-                path_to_images=self.data_path,
-                fold="test",
-                transform=self.data_transforms_cxr['val'])
-            test_loader = DataLoader(test_dataset, self.args.test_batch_size, shuffle=False)
-            args.lr = 0.01
-            print('lr changed: ', args.lr)
 
         # Define loaders
-        if self.args.dataset != 'CXR':
-            # OCT data has separate train, test spreadsheet
-            te_path = self.args.test_spreadsheet
-            tr_path = self.args.train_spreadsheet
+        # OCT data has separate train, test spreadsheet
+        te_path = self.args.test_spreadsheet
+        tr_path = self.args.train_spreadsheet
 
-            test_data = pd.read_csv(te_path)
+        test_data = pd.read_csv(te_path)
 
-            test_transform = transforms.Compose([transforms.Grayscale(num_output_channels=1), transforms.ToTensor(),
+        test_transform = transforms.Compose([transforms.Grayscale(num_output_channels=1), transforms.ToTensor(),
                                                  transforms.Normalize(mean=self.mean, std=self.std)])
 
-            test_dataset = GetDataset(df=test_data, img_dir=self.data_path,
-                                      transform=test_transform, dataset=self.args.dataset)
-            test_loader = DataLoader(dataset=test_dataset, batch_size=self.args.test_batch_size, shuffle=False)
+        test_dataset = GetDataset(df=test_data, img_dir=self.data_path,transform=test_transform, dataset=self.args.dataset)
+        test_loader = DataLoader(dataset=test_dataset, batch_size=self.args.test_batch_size, shuffle=False)
 
 
         self.test_fixed_loader = test_loader  # entire test data
@@ -139,16 +109,6 @@ class Trainer_New(object):
             self.criterion = nn.CrossEntropyLoss()
         else:
             self.criterion = nn.BCEWithLogitsLoss()
-            # debugging using different dataset
-            if self.args.dataset == 'CXR':
-                self.criterion = nn.BCELoss()
-                optimizer = torch.optim.SGD(
-                    filter(
-                        lambda p: p.requires_grad,
-                        model.parameters()),
-                    lr=args.lr,
-                    momentum=0.9,
-                    weight_decay=1e-4)
 
         # init model and optimizer
         self.model, self.optimizer = model, optimizer
