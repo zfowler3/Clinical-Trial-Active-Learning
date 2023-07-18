@@ -62,6 +62,7 @@ class Trainer_New(object):
         # OCT data has separate train, test spreadsheet
         te_path = self.args.test_spreadsheet
         tr_path = self.args.train_spreadsheet
+        self.train_pool = None
 
         test_data = pd.read_csv(te_path)
 
@@ -166,7 +167,7 @@ class Trainer_New(object):
         return model
 
     def update_loaders(self, current_idxs, batch_size, data, total_week_indices, current_idxs_test, data_test,
-                       total_te_week_ind):
+                       total_te_week_ind, train_pool):
         # transform
         train_transform = transforms.Compose([])
         train_transform.transforms.append(transforms.Grayscale(num_output_channels=1))
@@ -178,6 +179,7 @@ class Trainer_New(object):
         train_dataset = GetDataset(df=data.loc[current_idxs], img_dir=self.data_path, transform=train_transform,
                                    dataset=self.args.dataset, fold='train')
         train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+        self.train_pool = train_pool
 
         # Determine currently used indexes of samples
         if not self.args.continual:
