@@ -439,7 +439,7 @@ def main():
             if args.forgetting_mode == 'dynamic':
                 df.loc[rounds, 'Test samples'] = len(current_idxs_test)
             else:
-                df.loc[rounds, 'Test samples'] = len(week_te_ind_tot)
+                df.loc[rounds, 'Test samples'] = test_pool # Fixed test set
             df.loc[rounds, 'AUC'] = accs['auc']
 
             if args.visit_mode == 'yes' or args.dynamic_test_size==0:
