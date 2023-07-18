@@ -392,7 +392,7 @@ def main():
             trainer.update_loaders(current_idxs=current_idxs, batch_size=args.batch_size, data=train_data,
                                    total_week_indices=week_tr_pool_ind_total,
                                    current_idxs_test=current_idxs_test, data_test=test_data,
-                                   total_te_week_ind=week_te_ind_tot)
+                                   total_te_week_ind=week_te_ind_tot, train_pool=train_pool)
 
             # training routine for datasets that don't need validation dataset vs those that do
             # Accuracy is used to prevent overfitting
