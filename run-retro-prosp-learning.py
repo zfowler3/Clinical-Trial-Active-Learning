@@ -96,8 +96,6 @@ def parse_everything():
                         help='train off of visit #')
     parser.add_argument('--dynamic_test_size', type=int, default=0,
                         help='if customizing dynamic test size, this needs to be changed')
-    parser.add_argument('--fixed_test_size', type=bool, default=False, choices=[True, False],
-                        help='for tracking forgetting events on a fixed test set size')
     parser.add_argument('--skip', type=int, default=0,
                         help='number of weeks to skip between')
     parser.add_argument('--sample_past', type=bool, default=False,
