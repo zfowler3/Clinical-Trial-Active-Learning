@@ -28,9 +28,6 @@ class Sampler:
             :type new_idx: ndarray'''
         if cont == False:
             # active learning; retrain model at each round with all queried samples
-            print('hello??')
-            print('new idx shape: ', new_idx.shape)
-            print('cur idx shape: ', self.idx_current.shape)
             self.idx_current = np.append(self.idx_current, new_idx)
         elif len(add) == 0:
             # continual learning; only add newly queried samples to pool
