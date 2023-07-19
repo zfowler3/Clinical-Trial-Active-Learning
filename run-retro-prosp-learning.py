@@ -196,7 +196,7 @@ def main():
         start_idxs = ((np.random.permutation(week_tr_pool_ind)))[:init_samples]
 
     # This ensures the test set is the same in both PAL AND RAL
-    if args.fixed_test_size == True:
+    if args.forgetting_mode == 'fixed':
         start_idxs_test = total_test[np.random.permutation(len(total_test))]
         week_te_pool_ind = test_data['Ind'].to_numpy()
     elif args.dynamic_test_size > 0:
