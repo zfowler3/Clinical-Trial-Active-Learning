@@ -14,7 +14,7 @@ from query_strategies import RandomSampling, LeastConfidenceSampler, EntropySamp
 
 def parse_everything():
     parser = argparse.ArgumentParser(description="PyTorch Prospective/Retrospective AL")
-    parser.add_argument('--architecture', type=str, default='resnet_50',
+    parser.add_argument('--architecture', type=str, default='resnet_18',
                         choices=['resnet_18', 'resnet_34', 'resnet_50', 'resnet_101', 'resnet_152',
                                  'densenet_121', 'densenet_161', 'densenet_169', 'densenet_201',
                                  'vgg_11', 'vgg_13', 'vgg_16', 'vgg_19', 'mlp'],
@@ -35,7 +35,6 @@ def parse_everything():
                         metavar='N', help='dataloader threads')
     parser.add_argument('--run_status', type=str, default='train',
                         choices=['train', 'test'], help='')
-    #parser.add_argument('--device', type=str, default='cpu', choices=['cpu', 'cuda:0', 'cuda:1'])
 
     # training hyper params
     parser.add_argument('--epochs', type=int, default=100, metavar='N',
@@ -79,18 +78,18 @@ def parse_everything():
     parser.add_argument('--pretrained', type=bool, default=False)
 
     # active learning parameters
-    parser.add_argument('--strategy', type=str, default='rand',  ######### rand
+    parser.add_argument('--strategy', type=str, default='rand',
                         choices=['rand','least_conf', 'entropy', 'margin','badge','coreset'],
                         help='strategy used for sample query in active earning experiment')
     parser.add_argument('--start_strategy', type=str, default='rand_init',
                         choices=['rand_init']) # can customize original selection of points
-    parser.add_argument('--nstart', type=int, default=128,  ######### 20 # TODO number of samples in original dataset
+    parser.add_argument('--nstart', type=int, default=128,
                         help='number of samples in the initial data pool')
-    parser.add_argument('--nend', type=int, default=10000,  ######## 50000; this is the budget
+    parser.add_argument('--nend', type=int, default=10000,  ######## this is the budget
                         help='maximum amount of points to be queried')
-    parser.add_argument('--nquery', type=int, default=800,  ######## 1024 cifar-10 TODO
+    parser.add_argument('--nquery', type=int, default=800,
                         help='number of new samples to be queried in each round')
-    parser.add_argument('--min_acc', type=float, default=97.0,  # TODO big models put 94
+    parser.add_argument('--min_acc', type=float, default=97.0,
                         help='number of samples to be queried in each round')
     parser.add_argument('--visit_mode', type=str, default='None', choices=['yes', 'None'],
                         help='train off of visit #')
